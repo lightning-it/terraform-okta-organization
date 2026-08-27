@@ -1,4 +1,4 @@
-# terraform-okta-instance
+# terraform-okta-organization
 
 Reusable Terraform module for managing Okta groups, selected authoritative
 memberships, application group-assignment sets, and SCIM Group Push mappings.
@@ -20,8 +20,8 @@ provider "okta" {
 }
 
 module "identity_groups" {
-  source  = "lightning-it/instance/okta"
-  version = "1.0.0"
+  source  = "lightning-it/organization/okta"
+  version = "1.1.0"
 
   groups = {
     operators = {

@@ -1,0 +1,38 @@
+---
+schema_version: 1
+managed_by: lightning-it/shared-assets-lit
+repository: terraform-okta-organization
+visibility: public
+license_spdx: MIT
+repository_type: terraform_module
+release_type: semantic_release
+artifact_type: terraform_registry_module
+test_profiles:
+  - pre-commit
+  - terraform-fmt
+  - terraform-validate
+  - docs
+os_matrix:
+  - ubuntu-latest
+product_matrix:
+  - terraform
+  - okta-provider
+publishing_targets:
+  - terraform-registry
+galaxy_publish: false
+quay_publish: false
+release_evidence: false
+heavy_incus_required: false
+preserve_main_merge_ancestry: true
+openssf_best_practices:
+  required: false
+  project_id: null
+  target_level: passing
+  exception: 'Enrollment pending after initial publication; owner: Platform Engineering;
+    review by 2026-09-30.'
+readme_badges:
+  - pre-commit
+  - release
+  - license
+workflows:
+  ci: repository-quality.yml

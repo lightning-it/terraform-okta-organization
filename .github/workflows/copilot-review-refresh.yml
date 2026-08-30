@@ -485,6 +485,8 @@ jobs:
                       (($repository == "lightning-it/.github"
                         and $author == "lightning-it-shared-assets-sync[bot]"
                         and $base_ref == "develop")
+                        and $summary.review_path
+                          == "deterministic evidence-bound ancestry exemption"
                         and ($check.external_id |
                           test("^mlx90-current-revision:ancestry-backmerge:v6:"
                             + $pr + ":[1-9][0-9]*:" + $base + ":" + $head + "$")))
@@ -899,8 +901,9 @@ jobs:
           test "$(jq 'length' <<<"${verifier_jobs}")" -eq 1
           verifier_job_id="$(jq -er '.[0].id | select(type == "number" and . > 0)' \
             <<<"${verifier_jobs}")"
-          first_verifier_completed_at="$(jq -er '.[0].completed_at | \
-            select(type == "string" and length > 0)' <<<"${verifier_jobs}")"
+          first_verifier_completed_at="$(jq -er \
+            '.[0].completed_at | select(type == "string" and length > 0)' \
+            <<<"${verifier_jobs}")"
           test "$(date -u -d "${trigger_occurred_at}" +%s)" -gt \
             "$(date -u -d "${first_verifier_completed_at}" +%s)"
 

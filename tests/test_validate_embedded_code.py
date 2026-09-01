@@ -54,6 +54,42 @@ class EmbeddedCodeValidatorTests(unittest.TestCase):
         self.assertEqual(result, 1)
         self.assertIn("ShellCheck is required", stderr)
 
+    def test_uppercase_markdown_suffix_is_validated(self) -> None:
+        module = load_validator()
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "example.MD").write_text(
+                "```bash\necho ok\n```\n",
+                encoding="utf-8",
+            )
+            module.ROOT = root
+            stderr = io.StringIO()
+            with (
+                mock.patch.object(sys, "argv", [str(SCRIPT), "example.MD"]),
+                mock.patch.object(module.shutil, "which", return_value=None),
+                contextlib.redirect_stderr(stderr),
+            ):
+                result = module.main()
+        self.assertEqual(result, 1)
+        self.assertIn("ShellCheck is required", stderr.getvalue())
+
+    def test_multi_document_yaml_is_validated(self) -> None:
+        module = load_validator()
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "example.md").write_text(
+                "```yaml\n---\nfirst: document\n---\nsecond: document\n```\n",
+                encoding="utf-8",
+            )
+            module.ROOT = root
+            with mock.patch.object(
+                sys,
+                "argv",
+                [str(SCRIPT), "example.md"],
+            ):
+                result = module.main()
+        self.assertEqual(result, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

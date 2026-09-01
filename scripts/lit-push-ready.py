@@ -75,6 +75,10 @@ SECRET_PATH_MARKER = "secrets"
 SAFE_TERRAFORM_SECRET_MODULE_PATTERN = re.compile(
     r"[a-z0-9][a-z0-9_]*_secrets\.tf"
 )
+SAFE_PUBLIC_SECRET_ROUTE_PATTERN = re.compile(
+    r"(?:en/)?[a-z0-9]+(?:-[a-z0-9]+)*-secrets-"
+    r"[a-z0-9]+(?:-[a-z0-9]+)*\.html"
+)
 SECRET_CONTENT_PATTERNS = (
     re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
     re.compile(
@@ -114,7 +118,7 @@ AUTHORITATIVE_BASE_REFS = {
     "refs/remotes/origin/main": "main",
 }
 INTEGRATION_DIRECTORY_PREFIX = ".lit-integration-"
-COPILOT_DEVTOOL_IMAGE = "quay.io/l-it/ee-wunder-devtools-ubi9:v1.13.0@sha256:d65d9f849e2e18827d37277d25d9c62f6525c5f9a075feee977b9b0d02ec74c9"
+COPILOT_DEVTOOL_IMAGE = "quay.io/l-it/ee-wunder-devtools-ubi9:v1.15.1@sha256:42b8d871f4b1bb1ecf305fc692906b7b7f5ae466e2c8787fdef9d62a32ce774c"
 CHECK_PROFILE = {
     "name": "repository-quality-profile",
     "command": ["scripts/lit-ci-profile.sh", "repository-quality"],
@@ -200,7 +204,7 @@ class PlannedChange(NamedTuple):
 
 
 def is_secret_like_path(path: str) -> bool:
-    """Reject secret markers except in Terraform source-module filenames."""
+    """Reject secret markers except narrow reviewed source-file patterns."""
     lowered = path.lower()
     if any(fragment in lowered for fragment in SECRET_PATH_FRAGMENTS):
         return True
@@ -211,6 +215,11 @@ def is_secret_like_path(path: str) -> bool:
         if (
             index == len(components) - 1
             and SAFE_TERRAFORM_SECRET_MODULE_PATTERN.fullmatch(component)
+        ):
+            continue
+        if (
+            index == len(components) - 1
+            and SAFE_PUBLIC_SECRET_ROUTE_PATTERN.fullmatch(lowered)
         ):
             continue
         return True
@@ -1148,26 +1157,130 @@ def expected_integration_tree(change: PlannedChange) -> str:
                     "could not refresh the compatibility merge worktree "
                     "index: " + refreshed.stdout.strip()
                 )
+            merge_command = [
+                "git",
+                "-c",
+                f"core.hooksPath={disabled_hooks}",
+                "-c",
+                "merge.autoStash=false",
+                "-c",
+                "user.name=Lightning IT push-ready",
+                "-c",
+                "user.email=push-ready@invalid",
+                "merge",
+                "--no-commit",
+                "--no-ff",
+                "--strategy=ort",
+                change.head_commit,
+            ]
             merged = run(
-                [
-                    "git",
-                    "-c",
-                    f"core.hooksPath={disabled_hooks}",
-                    "-c",
-                    "merge.autoStash=false",
-                    "-c",
-                    "user.name=Lightning IT push-ready",
-                    "-c",
-                    "user.email=push-ready@invalid",
-                    "merge",
-                    "--no-commit",
-                    "--no-ff",
-                    "--strategy=ort",
-                    change.head_commit,
-                ],
+                merge_command,
                 capture=True,
                 cwd=worktree,
             )
+            merge_output_lines = merged.stdout.splitlines()
+            if (
+                merged.returncode
+                and merge_output_lines
+                and merge_output_lines[0].strip() == "fatal: stash failed"
+            ):
+                merge_head = run(
+                    ["git", "rev-parse", "--verify", "--quiet", "MERGE_HEAD"],
+                    capture=True,
+                    cwd=worktree,
+                )
+                current_head = git_output_at(worktree, "rev-parse", "HEAD").strip()
+                if (
+                    merge_head.returncode == 1
+                    and current_head == change.base_tip
+                    and directory_identity(
+                        worktree,
+                        purpose="compatibility merge worktree",
+                    )
+                    == worktree_identity
+                ):
+                    staged_drift = run(
+                        [
+                            "git",
+                            "diff",
+                            "--cached",
+                            "--quiet",
+                            "--no-ext-diff",
+                            "--no-textconv",
+                            change.base_tip,
+                            "--",
+                        ],
+                        capture=True,
+                        cwd=worktree,
+                    )
+                    tracked_drift = run(
+                        [
+                            "git",
+                            "diff",
+                            "--quiet",
+                            "--no-ext-diff",
+                            "--no-textconv",
+                            "--",
+                        ],
+                        capture=True,
+                        cwd=worktree,
+                    )
+                    untracked_drift = git_output_at(
+                        worktree,
+                        "ls-files",
+                        "--others",
+                        "--exclude-standard",
+                        "-z",
+                    )
+                    pre_rewrite_clean = (
+                        staged_drift.returncode == 0
+                        and tracked_drift.returncode == 0
+                        and not untracked_drift
+                    )
+                    if pre_rewrite_clean:
+                        # A newly checked-out linked-worktree index can remain
+                        # racily clean for the filesystem's one-second Git
+                        # timestamp window.  A normal refresh can leave the
+                        # index file untouched and make the single recovery
+                        # merge fail identically.
+                        # Wait past the window only after all three drift
+                        # proofs pass, then force a Git 2.34-compatible rewrite
+                        # in index format version 2.  This preserves every
+                        # index entry while moving the index timestamp beyond
+                        # the racy-clean window.  Re-prove status before the
+                        # one permitted retry.
+                        time.sleep(1.1)
+                        rewritten = run(
+                            [
+                                "git",
+                                "-c",
+                                f"core.hooksPath={disabled_hooks}",
+                                "update-index",
+                                "--index-version",
+                                "2",
+                            ],
+                            capture=True,
+                            cwd=worktree,
+                        )
+                        if rewritten.returncode:
+                            raise RuntimeError(
+                                "could not rewrite the compatibility merge "
+                                "worktree index after a transient stash race: "
+                                + rewritten.stdout.strip()
+                            )
+                        status_value = git_output_at(
+                            worktree,
+                            "status",
+                            "--porcelain=v1",
+                            "--untracked-files=all",
+                            "-z",
+                        )
+                        if not status_value:
+                            merged = run(
+                                merge_command,
+                                capture=True,
+                                cwd=worktree,
+                            )
             if merged.returncode:
                 raise RuntimeError(
                     "the reviewed HEAD does not merge cleanly with the "

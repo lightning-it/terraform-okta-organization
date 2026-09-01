@@ -206,6 +206,24 @@
 
 <!-- LIT REP-60 review governance: end -->
 
+<!-- LIT REP-60 evidence lifecycle: start -->
+### REP-60 evidence lifecycle (mandatory)
+
+- Every pull request into `develop` retains its exact-final-head native GitHub
+  CI, required-check, and review history as the authoritative evidence for
+  acceptance into `develop`.
+- A pull request into `develop` MUST NOT create or retain an additional durable
+  release-evidence package, duplicate WORM artifact, or second AI-review
+  evidence outside that native GitHub history.
+- Only the protected `develop` to `main` promotion creates exactly one durable,
+  complete release-evidence package. It binds the full integrated promotion
+  diff, base, head, merge base, integration tree, policy, reviewer result, and
+  all release and audit checks.
+- Agents, workflows, and repository-local rules MUST NOT duplicate that durable
+  evidence per `develop` pull request or invoke local AI to create evidence.
+  Repository-local rules may only make this lifecycle stricter.
+<!-- LIT REP-60 evidence lifecycle: end -->
+
 <!-- LIT Devtools container governance: start -->
 
 ## Devtools container execution boundary
@@ -224,6 +242,10 @@
   pin it in `container-ee-wunder-devtools-ubi9`, release that image normally,
   update the centrally managed digest, and rerun the gate. Host fallbacks,
   ad-hoc virtual environments, and unpinned helper images are forbidden.
+- Repository-owned tests derive the exact full Devtools image reference from
+  the centrally managed push-ready engine when checking the installed wrapper;
+  they never hard-code an independent release tag that can drift during a
+  normal image rollout.
 - Defaults stay read-only, offline, socket-free, capability-dropped, and
   non-privileged. A gate may opt into only its explicit tested minimum. Linked
   Git metadata remains read-only and container Git may trust only

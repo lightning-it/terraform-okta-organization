@@ -62,9 +62,16 @@ def run(command: list[str], *, required: bool = True) -> None:
             command,
             cwd=ROOT,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             capture_output=True,
             timeout=EXTERNAL_COMMAND_TIMEOUT_SECONDS,
         )
+    except FileNotFoundError as error:
+        if not required:
+            print(f"Skipping {' '.join(command)}: {command[0]} is not installed")
+            return
+        raise AssertionError(f"Required command not found: {command[0]}") from error
     except subprocess.TimeoutExpired as error:
         if error.stdout:
             print(error.stdout)

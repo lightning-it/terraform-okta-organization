@@ -59,6 +59,41 @@ class RepositoryQualityTests(unittest.TestCase):
         ):
             module.run(["terraform", "version"])
 
+    def test_required_command_disappearing_fails_closed(self) -> None:
+        module = load_repository_quality()
+        with (
+            mock.patch.object(
+                module.subprocess,
+                "run",
+                side_effect=FileNotFoundError("terraform"),
+            ),
+            self.assertRaisesRegex(
+                AssertionError,
+                "Required command not found: terraform",
+            ),
+        ):
+            module.run(["terraform", "version"])
+
+    def test_external_command_output_uses_deterministic_decoding(self) -> None:
+        module = load_repository_quality()
+        completed = subprocess.CompletedProcess(["terraform", "version"], 0)
+        with mock.patch.object(
+            module.subprocess,
+            "run",
+            return_value=completed,
+        ) as run:
+            module.run(["terraform", "version"])
+
+        run.assert_called_once_with(
+            ["terraform", "version"],
+            cwd=module.ROOT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            capture_output=True,
+            timeout=module.EXTERNAL_COMMAND_TIMEOUT_SECONDS,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

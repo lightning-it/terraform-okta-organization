@@ -24,6 +24,13 @@ def load_repository_quality():
 
 
 class RepositoryQualityTests(unittest.TestCase):
+    def test_generic_container_tmp_is_noexec(self) -> None:
+        wrapper = SCRIPT.parent / "wunder-devtools-ee.sh"
+        self.assertIn(
+            '--tmpfs "/tmp:rw,nosuid,nodev,noexec,size=2g"',
+            wrapper.read_text(encoding="utf-8"),
+        )
+
     def test_terraform_repository_requires_terraform_cli(self) -> None:
         module = load_repository_quality()
         with tempfile.TemporaryDirectory() as temporary:

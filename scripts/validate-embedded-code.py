@@ -16,8 +16,9 @@ try:
     import yaml
 except ImportError as error:
     raise SystemExit(
-        "PyYAML is required for fail-closed embedded YAML validation: "
-        "python3 -m pip install PyYAML==6.0.3"
+        "PyYAML is required for fail-closed embedded YAML validation; run "
+        "scripts/lit-ci-profile.sh repository-quality so the locked Devtools "
+        "dependency set is used"
     ) from error
 
 SCRIPT = Path(__file__).resolve()
@@ -86,7 +87,7 @@ def main() -> int:
                 label = f"{name}:fence-{index}"
                 if language in {"yaml", "yml", "ansible"}:
                     try:
-                        yaml.safe_load(content)
+                        list(yaml.safe_load_all(content))
                     except yaml.YAMLError as error:
                         failures.append(f"{label}: invalid YAML: {error}")
                     if language == "ansible":

@@ -32,25 +32,14 @@ Products and runtimes:
 Run the managed repository-policy checks:
 
 ```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install PyYAML==6.0.3
-.venv/bin/python scripts/lit-repository-quality.py
-.venv/bin/python scripts/lit-push-ready.py push-ready
+scripts/lit-ci-profile.sh repository-quality
+python3 scripts/lit-push-ready.py push-ready
 ```
 
-Run the declared pre-commit profile:
-
-```bash
-pre-commit run --all-files
-```
-
-Run Terraform formatting and offline validation:
-
-```bash
-terraform fmt -check -recursive
-terraform init -backend=false
-terraform validate
-```
+These managed entrypoints run the declared pre-commit, Terraform formatting,
+offline validation, documentation, unit-test, and actionlint checks through the
+digest-pinned Devtools image. Host Python, Terraform, and related runtimes are
+not acceptance evidence for this repository.
 
 Heavy Incus execution is not required for this repository. Do not report an Incus run as part of its acceptance evidence.
 

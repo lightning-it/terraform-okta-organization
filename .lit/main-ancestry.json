@@ -1,0 +1,7 @@
+{
+  "develop_parent_sha": "9077ffa7570d2fc6808bfdddb02d6e363b8ee40d",
+  "main_sha": "b5429b51cee8a03fefff46cee36cb56b237b05ef",
+  "purpose": "Bind the reviewed main ancestry backmerge.",
+  "repository": "lightning-it/terraform-okta-organization",
+  "schema_version": 1
+}

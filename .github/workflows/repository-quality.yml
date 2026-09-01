@@ -1,0 +1,44 @@
+# yamllint disable rule:truthy
+---
+name: Repository Quality
+
+on:
+  push:
+    branches: ["develop", "main"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  AUTHORITATIVE_BASE_BRANCH: develop
+
+jobs:
+  quality:
+    name: repository / quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Refresh authoritative develop ref
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          auth_header="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+          echo "::add-mask::$auth_header"
+          GIT_CONFIG_COUNT=1 \
+          GIT_CONFIG_KEY_0=http.https://github.com/.extraheader \
+          GIT_CONFIG_VALUE_0="$auth_header" \
+            git fetch --quiet --no-tags origin \
+              "+refs/heads/${AUTHORITATIVE_BASE_BRANCH}:refs/remotes/origin/${AUTHORITATIVE_BASE_BRANCH}"
+
+      - name: Run canonical repository-quality profile
+        run: scripts/lit-ci-profile.sh repository-quality

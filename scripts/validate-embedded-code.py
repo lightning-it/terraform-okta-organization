@@ -87,7 +87,8 @@ def main() -> int:
                 label = f"{name}:fence-{index}"
                 if language in {"yaml", "yml", "ansible"}:
                     try:
-                        list(yaml.safe_load_all(content))
+                        for _document in yaml.safe_load_all(content):
+                            pass
                     except yaml.YAMLError as error:
                         failures.append(f"{label}: invalid YAML: {error}")
                     if language == "ansible":

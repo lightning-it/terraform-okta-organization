@@ -73,7 +73,7 @@ def main() -> int:
                 )
                 continue
             path = ROOT / relative_path
-            if not path.is_file() or path.suffix != ".md":
+            if not path.is_file() or path.suffix.lower() != ".md":
                 continue
             try:
                 source = path.read_text(encoding="utf-8")
